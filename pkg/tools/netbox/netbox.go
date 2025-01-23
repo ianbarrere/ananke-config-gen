@@ -70,15 +70,6 @@ func (n NetboxApi) Request(method string, suffix string, body []byte) *http.Resp
 	return resp
 }
 
-func InsertRepoConfig(rcs []repoconfig.RepoConfig, rc repoconfig.RepoConfig) []repoconfig.RepoConfig {
-	// Insert RepoConfig into list, alphabetical by Path
-	i := sort.Search(len(rcs), func(i int) bool { return rcs[i].Path > rc.Path })
-	rcs = append(rcs, repoconfig.RepoConfig{})
-	copy(rcs[i+1:], rcs[i:])
-	rcs[i] = rc
-	return rcs
-}
-
 func (cfn ConfigFromNetbox) GetRepoConfig(repo repo.GitlabRepo, interfaceLayout string) map[string][]repofile.RepoFile {
 	// Get RepoConfig objects from ConfigFromNetbox data.
 	configFiles := map[string][]repofile.RepoFile{}
@@ -90,15 +81,16 @@ func (cfn ConfigFromNetbox) GetRepoConfig(repo repo.GitlabRepo, interfaceLayout 
 				filePath := filePrefix + fmt.Sprintf("/interfaces-%s.yaml.j2", filePathIntId)
 				intConfigSect.Path = "openconfig:/interfaces/interface[name=" + intName + "]"
 				configFiles[device] = append(configFiles[device],
-					repofile.NewRepoFile(filePath, intConfigSect))
+					repofile.NewRepoFile(filePath, []repoconfig.RepoConfig{intConfigSect}))
 			}
 		} else if interfaceLayout == "SAMEFILE" {
 			filePath := filePrefix + "/interfaces.yaml.j2"
-			repoFile := repofile.RepoFile{FilePath: filePath}
+			repoConfigs := []repoconfig.RepoConfig{}
 			for intName, intConfigSect := range deviceConfigObjects.Interfaces {
 				intConfigSect.Path = "openconfig:/interfaces/interface[name=" + intName + "]"
-				repoFile.ConfigSections = InsertRepoConfig(repoFile.ConfigSections, intConfigSect)
+				repoConfigs = append(repoConfigs, intConfigSect)
 			}
+			repoFile := repofile.NewRepoFile(filePath, repoConfigs)
 			configFiles[device] = append(configFiles[device], repoFile)
 		} else if interfaceLayout == "TOGETHER" {
 			filePath := filePrefix + "/interfaces.yaml.j2"
@@ -125,25 +117,25 @@ func (cfn ConfigFromNetbox) GetRepoConfig(repo repo.GitlabRepo, interfaceLayout 
 			filePath := filePrefix + "/acl.yaml.j2"
 			deviceConfigObjects.Acl.Path = "openconfig:/acl/interfaces"
 			configFiles[device] = append(configFiles[device],
-				repofile.NewRepoFile(filePath, deviceConfigObjects.Acl))
+				repofile.NewRepoFile(filePath, []repoconfig.RepoConfig{deviceConfigObjects.Acl}))
 		}
 		if deviceConfigObjects.Vlans.Binding != nil {
 			filePath := filePrefix + "/vlan.yaml.j2"
 			deviceConfigObjects.Vlans.Path = "openconfig:/network-instance[name=DEFAULT]/vlans"
 			configFiles[device] = append(configFiles[device],
-				repofile.NewRepoFile(filePath, deviceConfigObjects.Vlans))
+				repofile.NewRepoFile(filePath, []repoconfig.RepoConfig{deviceConfigObjects.Vlans}))
 		}
 		if deviceConfigObjects.Ospf.Binding != nil {
 			filePath := filePrefix + "/ospfv2.yaml.j2"
 			deviceConfigObjects.Ospf.Path = "openconfig:/network-instance[name=DEFAULT]/protocols/protocol[name=OSPF]/ospfv2"
 			configFiles[device] = append(configFiles[device],
-				repofile.NewRepoFile(filePath, deviceConfigObjects.Ospf))
+				repofile.NewRepoFile(filePath, []repoconfig.RepoConfig{deviceConfigObjects.Ospf}))
 		}
 		if deviceConfigObjects.Lacp.Binding != nil {
 			filePath := filePrefix + "/lacp.yaml.j2"
 			deviceConfigObjects.Lacp.Path = "openconfig:/lacp"
 			configFiles[device] = append(configFiles[device],
-				repofile.NewRepoFile(filePath, deviceConfigObjects.Lacp))
+				repofile.NewRepoFile(filePath, []repoconfig.RepoConfig{deviceConfigObjects.Lacp}))
 		}
 	}
 	return configFiles

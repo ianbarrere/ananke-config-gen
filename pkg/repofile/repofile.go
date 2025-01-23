@@ -2,6 +2,7 @@ package repofile
 
 import (
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/ibarrere/ananke-config-gen/pkg/repo"
@@ -46,10 +47,23 @@ func (rf *RepoFile) GetContent(outputFormat repoconfig.ExportFormat) string {
 	return strings.Join(fileContent, "\n")
 }
 
-func NewRepoFile(filePath string, configObject repoconfig.RepoConfig) RepoFile {
+func InsertRepoConfig(rcs []repoconfig.RepoConfig, rc repoconfig.RepoConfig) []repoconfig.RepoConfig {
+	// Insert RepoConfig into list, alphabetical by Path
+	i := sort.Search(len(rcs), func(i int) bool { return rcs[i].Path > rc.Path })
+	rcs = append(rcs, repoconfig.RepoConfig{})
+	copy(rcs[i+1:], rcs[i:])
+	rcs[i] = rc
+	return rcs
+}
+
+func NewRepoFile(filePath string, configSections []repoconfig.RepoConfig) RepoFile {
+	orderedConfigSections := []repoconfig.RepoConfig{}
+	for _, configSection := range configSections {
+		orderedConfigSections = InsertRepoConfig(orderedConfigSections, configSection)
+	}
 	return RepoFile{
 		FilePath:       filePath,
-		ConfigSections: []repoconfig.RepoConfig{configObject},
+		ConfigSections: orderedConfigSections,
 	}
 }
 
